@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.1 - 2024-12-21
+
+- Improve documentation.
+
 ## v1.1.0 - 2024-11-29
 
 - Added support for expiry mode.
