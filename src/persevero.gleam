@@ -58,7 +58,7 @@ pub type RetryData(a, b) {
   RetryData(result: RetryResult(a, b), wait_times: List(Int), duration: Int)
 }
 
-/// Convenience function that you can supply to `execute`'s `allow` parameter to
+/// Convenience function that can supplied to `execute`'s `allow` parameter to
 /// allow all errors.
 pub fn all_errors(_: a) -> Bool {
   True
