@@ -26,7 +26,8 @@ pub fn main() {
     )
 
   case response {
-    Ok(response) if response.status == 200 -> io.debug("Give me #prawducks. 😃")
-    _ -> io.debug("Guess I'll dev on Linux. 😔")
+    Ok(response) if response.status == 200 ->
+      io.println("Give me #prawducks. 😃")
+    _ -> io.println("Guess I'll dev on Linux. 😔")
   }
 }
