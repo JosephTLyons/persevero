@@ -1,5 +1,4 @@
 import bigben/clock
-import gleeunit/should
 import internal/mock_types.{
   ConnectionTimeout, InvalidResponse, ServerUnavailable,
 }
@@ -29,15 +28,13 @@ pub fn positive_3_no_backoff_fails_with_retries_exhausted_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result
-  |> should.equal(
-    Error(
+  assert result
+    == Error(
       persevero.RetriesExhausted([
         ConnectionTimeout,
         ServerUnavailable,
         InvalidResponse,
       ]),
-    ),
-  )
-  wait_times |> should.equal([0, 0, 0])
+    )
+  assert wait_times == [0, 0, 0]
 }

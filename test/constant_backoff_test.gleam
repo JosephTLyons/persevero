@@ -1,7 +1,6 @@
 import bigben/clock
 import bigben/fake_clock
 import gleam/list
-import gleeunit/should
 import internal/mock_types.{
   ConnectionTimeout, InvalidResponse, ServerUnavailable, SuccessfulConnection,
   ValidData,
@@ -42,8 +41,8 @@ pub fn positive_4_constant_backoff_with_some_allowed_errors_is_successful_test()
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Ok(SuccessfulConnection))
-  wait_times |> should.equal([0, 100, 100])
+  assert result == Ok(SuccessfulConnection)
+  assert wait_times == [0, 100, 100]
 }
 
 pub fn positive_4_constant_backoff_with_all_allowed_errors_is_successful_test() {
@@ -69,8 +68,8 @@ pub fn positive_4_constant_backoff_with_all_allowed_errors_is_successful_test() 
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Ok(ValidData))
-  wait_times |> should.equal([0, 100, 100, 100])
+  assert result == Ok(ValidData)
+  assert wait_times == [0, 100, 100, 100]
 }
 
 pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() {
@@ -101,9 +100,9 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
       clock: clock.from_fake(fake_clock),
     )
 
-  wait_times |> should.equal([0, 100, 100, 100])
-  duration |> should.equal(expiry)
-  result |> should.equal(Ok(ValidData))
+  assert wait_times == [0, 100, 100, 100]
+  assert duration == expiry
+  assert result == Ok(ValidData)
 }
 
 // -------------------- Failure
@@ -125,8 +124,8 @@ pub fn negative_1_times_fails_with_retries_exhausted_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Error(RetriesExhausted([])))
-  wait_times |> should.equal([])
+  assert result == Error(RetriesExhausted([]))
+  assert wait_times == []
 }
 
 pub fn positive_0_times_fails_with_retries_exhausted_test() {
@@ -146,8 +145,8 @@ pub fn positive_0_times_fails_with_retries_exhausted_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Error(RetriesExhausted([])))
-  wait_times |> should.equal([])
+  assert result == Error(RetriesExhausted([]))
+  assert wait_times == []
 }
 
 pub fn positive_1_times_fails_with_retries_exhausted_test() {
@@ -169,8 +168,8 @@ pub fn positive_1_times_fails_with_retries_exhausted_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Error(RetriesExhausted([ConnectionTimeout])))
-  wait_times |> should.equal([0])
+  assert result == Error(RetriesExhausted([ConnectionTimeout]))
+  assert wait_times == [0]
 }
 
 pub fn positive_3_times_fails_with_retries_exhausted_test() {
@@ -194,13 +193,11 @@ pub fn positive_3_times_fails_with_retries_exhausted_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result
-  |> should.equal(
-    Error(
+  assert result
+    == Error(
       RetriesExhausted([ConnectionTimeout, ServerUnavailable, InvalidResponse]),
-    ),
-  )
-  wait_times |> should.equal([0, 100, 100])
+    )
+  assert wait_times == [0, 100, 100]
 }
 
 pub fn positive_3_times_retry_fails_on_non_allowed_error_test() {
@@ -230,8 +227,8 @@ pub fn positive_3_times_retry_fails_on_non_allowed_error_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Error(UnallowedError(ServerUnavailable)))
-  wait_times |> should.equal([0, 100])
+  assert result == Error(UnallowedError(ServerUnavailable))
+  assert wait_times == [0, 100]
 }
 
 // Same as comment below
@@ -250,9 +247,9 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
       clock: clock.from_fake(fake_clock),
     )
 
-  wait_times |> should.equal([])
-  duration |> should.equal(0)
-  result |> should.equal(Error(TimeExhausted([])))
+  assert wait_times == []
+  assert duration == 0
+  assert result == Error(TimeExhausted([]))
 }
 
 // I may want to revisit this. I'm not sure if expiry 0, or less than 0, should
@@ -274,9 +271,9 @@ pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
       clock: clock.from_fake(fake_clock),
     )
 
-  wait_times |> should.equal([])
-  duration |> should.equal(expiry)
-  result |> should.equal(Error(TimeExhausted([])))
+  assert wait_times == []
+  assert duration == expiry
+  assert result == Error(TimeExhausted([]))
 }
 
 pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
@@ -300,9 +297,9 @@ pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test
   let expected_wait_times = [0, ..expected_wait_times]
   let expected_errors = error |> list.repeat(attempts + 1)
 
-  wait_times |> should.equal(expected_wait_times)
-  duration |> should.equal(expiry)
-  result |> should.equal(Error(TimeExhausted(expected_errors)))
+  assert wait_times == expected_wait_times
+  assert duration == expiry
+  assert result == Error(TimeExhausted(expected_errors))
 }
 
 pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
@@ -334,17 +331,15 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
       clock: clock.from_fake(fake_clock),
     )
 
-  wait_times |> should.equal([0, 100, 100, 100])
-  duration |> should.equal(expiry)
-  result
-  |> should.equal(
-    Error(
+  assert wait_times == [0, 100, 100, 100]
+  assert duration == expiry
+  assert result
+    == Error(
       TimeExhausted([
         ConnectionTimeout,
         ServerUnavailable,
         InvalidResponse,
         ServerUnavailable,
       ]),
-    ),
-  )
+    )
 }

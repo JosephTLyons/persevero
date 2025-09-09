@@ -1,5 +1,4 @@
 import bigben/clock
-import gleeunit/should
 import internal/mock_types.{
   ConnectionTimeout, InvalidResponse, ServerUnavailable, ValidData,
 }
@@ -33,6 +32,6 @@ pub fn positive_4_custom_backoff_is_successful_test() {
       wait_function: fake_wait,
       clock: clock.new(),
     )
-  result |> should.equal(Ok(ValidData))
-  wait_times |> should.equal([0, 100, 400, 1000])
+  assert result == Ok(ValidData)
+  assert wait_times == [0, 100, 400, 1000]
 }
