@@ -190,7 +190,7 @@ pub fn execute_with_options(
     wait_time_acc: [],
     clock:,
     errors_acc: [],
-    attempt_number: 0,
+    attempt: 0,
     start_time: clock |> clock.now(),
     duration: 0,
   )
@@ -220,7 +220,7 @@ fn do_execute(
   wait_time_acc wait_time_acc: List(Int),
   clock clock: clock.Clock,
   errors_acc errors_acc: List(b),
-  attempt_number attempt_number: Int,
+  attempt attempt: Int,
   start_time start_time: birl.Time,
   duration duration: Int,
 ) -> RetryData(a, b) {
@@ -240,7 +240,7 @@ fn do_execute(
         |> birl.difference(start_time)
         |> duration.blur_to(duration.MilliSecond)
 
-      case operation(attempt_number) {
+      case operation(attempt) {
         Ok(result) ->
           RetryData(
             result: Ok(result),
@@ -259,7 +259,7 @@ fn do_execute(
                 wait_time_acc:,
                 clock:,
                 errors_acc: [error, ..errors_acc],
-                attempt_number: attempt_number + 1,
+                attempt: attempt + 1,
                 start_time:,
                 duration:,
               )
