@@ -28,12 +28,12 @@
 //// ```
 
 import bigben/clock
-import birl
-import birl/duration
 import gleam/erlang/process
 import gleam/function
 import gleam/int
 import gleam/list
+import gleam/time/duration
+import gleam/time/timestamp.{type Timestamp}
 import gleam/yielder.{type Yielder}
 
 /// Represents errors that can occur during execution attempts.
@@ -221,7 +221,7 @@ fn do_execute(
   clock clock: clock.Clock,
   errors_acc errors_acc: List(b),
   attempt attempt: Int,
-  start_time start_time: birl.Time,
+  start_time start_time: Timestamp,
   duration duration: Int,
 ) -> RetryData(a, b) {
   let should_execute = case mode {
@@ -235,10 +235,13 @@ fn do_execute(
       let wait_time_acc = [wait_time, ..wait_time_acc]
 
       let duration =
-        clock
-        |> clock.now()
-        |> birl.difference(start_time)
-        |> duration.blur_to(duration.MilliSecond)
+        start_time
+        |> timestamp.difference(clock.now(clock))
+        |> duration.to_seconds_and_nanoseconds
+        |> fn(seconds_nanoseconds) {
+          let #(seconds, nanoseconds) = seconds_nanoseconds
+          seconds * 1000 + nanoseconds / 1_000_000
+        }
 
       case operation(attempt) {
         Ok(result) ->
