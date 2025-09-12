@@ -5,7 +5,7 @@ import internal/mock_types.{
   ConnectionTimeout, InvalidResponse, ServerUnavailable, SuccessfulConnection,
   ValidData,
 }
-import internal/utils.{advance_fake_clock, fake_wait}
+import internal/utils.{advance_fake_clock_ms, fake_wait}
 import persevero.{
   Expiry, MaxAttempts, RetriesExhausted, RetryData, TimeExhausted,
   UnallowedError, all_errors,
@@ -96,7 +96,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
           _ -> panic
         }
       },
-      wait_function: advance_fake_clock(fake_clock, _),
+      wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
     )
 
@@ -243,7 +243,7 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
       allow: persevero.all_errors,
       mode: Expiry(expiry),
       operation: fn(_) { Error(InvalidResponse) },
-      wait_function: advance_fake_clock(fake_clock, _),
+      wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
     )
 
@@ -267,7 +267,7 @@ pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
       allow: persevero.all_errors,
       mode: Expiry(expiry),
       operation: fn(_) { Error(InvalidResponse) },
-      wait_function: advance_fake_clock(fake_clock, _),
+      wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
     )
 
@@ -288,7 +288,7 @@ pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test
       allow: persevero.all_errors,
       mode: Expiry(expiry),
       operation: fn(_) { Error(InvalidResponse) },
-      wait_function: advance_fake_clock(fake_clock, _),
+      wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
     )
 
@@ -327,7 +327,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
           _ -> panic
         }
       },
-      wait_function: advance_fake_clock(fake_clock, _),
+      wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
     )
 
