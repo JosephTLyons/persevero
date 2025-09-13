@@ -240,7 +240,8 @@ fn do_execute(
         |> duration.to_seconds_and_nanoseconds
         |> fn(seconds_nanoseconds) {
           let #(seconds, nanoseconds) = seconds_nanoseconds
-          seconds * 1000 + nanoseconds / 1_000_000
+          let milliseconds = seconds * 1000 + nanoseconds / 1_000_000
+          milliseconds
         }
 
       case operation(attempt) {
