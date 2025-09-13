@@ -211,6 +211,16 @@ fn configure_wait_stream(
   }
 }
 
+@internal
+pub fn duration_ms(left: Timestamp, right: Timestamp) -> Int {
+  let #(seconds, nanoseconds) =
+    left
+    |> timestamp.difference(right)
+    |> duration.to_seconds_and_nanoseconds
+
+  seconds * 1000 + nanoseconds / 1_000_000
+}
+
 fn do_execute(
   wait_stream wait_stream: Yielder(Int),
   allow allow: fn(b) -> Bool,
@@ -233,16 +243,7 @@ fn do_execute(
     True, yielder.Next(wait_time, wait_stream) -> {
       wait_function(wait_time)
       let wait_time_acc = [wait_time, ..wait_time_acc]
-
-      let duration =
-        start_time
-        |> timestamp.difference(clock.now(clock))
-        |> duration.to_seconds_and_nanoseconds
-        |> fn(seconds_nanoseconds) {
-          let #(seconds, nanoseconds) = seconds_nanoseconds
-          let milliseconds = seconds * 1000 + nanoseconds / 1_000_000
-          milliseconds
-        }
+      let duration = duration_ms(start_time, clock.now(clock))
 
       case operation(attempt) {
         Ok(result) ->
