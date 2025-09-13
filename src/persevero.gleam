@@ -278,9 +278,10 @@ fn do_execute(
       }
     }
     _, _ -> {
+      let errors = errors_acc |> list.reverse
       let error = case mode {
-        MaxAttempts(_) -> RetriesExhausted(errors_acc |> list.reverse)
-        Expiry(_) -> TimeExhausted(errors_acc |> list.reverse)
+        MaxAttempts(_) -> RetriesExhausted(errors)
+        Expiry(_) -> TimeExhausted(errors)
       }
       RetryData(
         result: Error(error),
