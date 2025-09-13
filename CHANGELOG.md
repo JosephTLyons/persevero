@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.2 - 2025-09-12
+
+- Refreshed dependencies
+    - Relaxed upper version bounds on dependencies
+    - Internally, now using `gleam_time` instead of `birl`, as it seems to be maintained more actively
+
 ## v1.1.1 - 2024-12-21
 
 - Improve documentation.
