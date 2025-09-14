@@ -167,7 +167,12 @@ pub fn execute(
     allow:,
     mode:,
     operation: fn(_) { operation() },
-    wait_function: process.sleep,
+    wait_function: fn(wait_time) {
+      case wait_time <= 0 {
+        True -> Nil
+        False -> process.sleep(wait_time)
+      }
+    },
     clock: clock.new(),
   ).result
 }
