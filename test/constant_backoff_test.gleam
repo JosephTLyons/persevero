@@ -7,8 +7,8 @@ import internal/mock_types.{
 }
 import internal/utils.{advance_fake_clock_ms, fake_wait}
 import persevero.{
-  Expiry, MaxAttempts, RetriesExhausted, RetryData, TimeExhausted,
-  UnallowedError, all_errors,
+  Exact, Expiry, MaxAttempts, RetriesExhausted, RetryData, Spillover,
+  TimeExhausted, UnallowedError, all_errors,
 }
 
 // -------------------- Success
@@ -81,7 +81,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
     persevero.constant_backoff(constant_backoff_time)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
-      mode: Expiry(expiry),
+      mode: Expiry(expiry, Spillover),
       operation: fn(attempt) {
         case attempt {
           // 1, wait 0
@@ -241,7 +241,7 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
     persevero.constant_backoff(constant_backoff_time)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
-      mode: Expiry(expiry),
+      mode: Expiry(expiry, Spillover),
       operation: fn(_) { Error(InvalidResponse) },
       wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
@@ -265,7 +265,7 @@ pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
     persevero.constant_backoff(constant_backoff_time)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
-      mode: Expiry(expiry),
+      mode: Expiry(expiry, Spillover),
       operation: fn(_) { Error(InvalidResponse) },
       wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
@@ -286,7 +286,7 @@ pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test
     persevero.constant_backoff(constant_backoff_time)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
-      mode: Expiry(expiry),
+      mode: Expiry(expiry, Spillover),
       operation: fn(_) { Error(InvalidResponse) },
       wait_function: advance_fake_clock_ms(fake_clock, _),
       clock: clock.from_fake(fake_clock),
@@ -311,7 +311,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
     persevero.constant_backoff(constant_backoff_time)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
-      mode: Expiry(expiry),
+      mode: Expiry(expiry, Spillover),
       operation: fn(attempt) {
         case attempt {
           // 1, wait 0
@@ -342,4 +342,80 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
         ServerUnavailable,
       ]),
     )
+}
+
+pub fn expiry_exact_250_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+  let expiry = 250
+  let fake_clock = fake_clock.new()
+  let constant_backoff_time = 100
+
+  let RetryData(result, wait_times, duration) =
+    persevero.constant_backoff(constant_backoff_time)
+    |> persevero.execute_with_options(
+      allow: persevero.all_errors,
+      mode: Expiry(expiry, Exact),
+      operation: fn(attempt) {
+        case attempt {
+          // 1, wait 0
+          0 -> Error(ConnectionTimeout)
+          // 2, wait 100 (100)
+          1 -> Error(ServerUnavailable)
+          // 3, wait 100 (200)
+          2 -> Error(InvalidResponse)
+          // 4, wait 100 (300)
+          3 -> Error(ServerUnavailable)
+          // error - time exhausted
+          4 -> Ok(ValidData)
+          _ -> panic
+        }
+      },
+      wait_function: advance_fake_clock_ms(fake_clock, _),
+      clock: clock.from_fake(fake_clock),
+    )
+
+  assert wait_times == [0, 100, 100, 50]
+  assert duration == expiry
+  assert result
+    == Error(
+      TimeExhausted([
+        ConnectionTimeout,
+        ServerUnavailable,
+        InvalidResponse,
+        ServerUnavailable,
+      ]),
+    )
+}
+
+pub fn expiry_exact_negative_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+  let expiry = -1
+  let fake_clock = fake_clock.new()
+  let constant_backoff_time = 100
+
+  let RetryData(result, wait_times, duration) =
+    persevero.constant_backoff(constant_backoff_time)
+    |> persevero.execute_with_options(
+      allow: persevero.all_errors,
+      mode: Expiry(expiry, Exact),
+      operation: fn(attempt) {
+        case attempt {
+          // 1, wait 0
+          0 -> Error(ConnectionTimeout)
+          // 2, wait 100 (100)
+          1 -> Error(ServerUnavailable)
+          // 3, wait 100 (200)
+          2 -> Error(InvalidResponse)
+          // 4, wait 100 (300)
+          3 -> Error(ServerUnavailable)
+          // error - time exhausted
+          4 -> Ok(ValidData)
+          _ -> panic
+        }
+      },
+      wait_function: advance_fake_clock_ms(fake_clock, _),
+      clock: clock.from_fake(fake_clock),
+    )
+
+  assert wait_times == []
+  assert duration == 0
+  assert result == Error(TimeExhausted([]))
 }

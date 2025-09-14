@@ -138,6 +138,7 @@ pub type Mode {
   /// Specifies the maximum number of attempts to make.
   MaxAttempts(Int)
 
+  // TODO: Update documentation
   /// Specifies the maximum duration, in ms, to make attempts for.
   ///
   /// Note that `Expiry` mode does not prevent the current wait time from
@@ -146,7 +147,13 @@ pub type Mode {
   /// and the attempt on the operation, will still be run, resulting in
   /// spillover. Also note that the duration measured includes the time it takes
   /// to run your operation.
-  Expiry(Int)
+  Expiry(Int, mode: ExpiryMode)
+}
+
+// TODO: Document - mention does not include operation time
+pub type ExpiryMode {
+  Exact
+  Spillover
 }
 
 /// Initiates the execution process with the specified operation.
@@ -212,7 +219,41 @@ fn configure_wait_stream(
 
   case mode {
     MaxAttempts(max_attempts) -> wait_stream |> yielder.take(max_attempts)
-    Expiry(_) -> wait_stream
+    Expiry(expiry, expiry_mode) ->
+      case expiry_mode {
+        Spillover -> wait_stream
+        Exact ->
+          configure_exact_expiry_wait_stream(
+            expiry,
+            wait_stream,
+            yielder.empty(),
+          )
+      }
+  }
+}
+
+fn configure_exact_expiry_wait_stream(
+  expiry: Int,
+  source_wait_stream: Yielder(Int),
+  acc: Yielder(Int),
+) -> Yielder(Int) {
+  case expiry {
+    expiry if expiry <= 0 -> acc
+    _ -> {
+      case yielder.step(source_wait_stream) {
+        yielder.Done -> acc
+        yielder.Next(wait_time, wait_stream) -> {
+          configure_exact_expiry_wait_stream(
+            int.max(expiry - wait_time, 0),
+            wait_stream,
+            yielder.append(
+              acc,
+              yielder.once(fn() { int.min(expiry, wait_time) }),
+            ),
+          )
+        }
+      }
+    }
   }
 }
 
@@ -241,7 +282,7 @@ fn do_execute(
 ) -> RetryData(a, b) {
   let should_execute = case mode {
     MaxAttempts(max_attempts) -> max_attempts > 0
-    Expiry(expiry) -> expiry > 0 && duration < expiry
+    Expiry(expiry, _) -> expiry > 0 && duration < expiry
   }
 
   case should_execute, wait_stream |> yielder.step() {
@@ -287,7 +328,7 @@ fn do_execute(
       let errors = errors_acc |> list.reverse
       let error = case mode {
         MaxAttempts(_) -> RetriesExhausted(errors)
-        Expiry(_) -> TimeExhausted(errors)
+        Expiry(_, _) -> TimeExhausted(errors)
       }
       RetryData(
         result: Error(error),
