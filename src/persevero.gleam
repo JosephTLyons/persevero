@@ -199,7 +199,7 @@ pub fn execute_with_options(
   clock clock: clock.Clock,
 ) -> RetryData(a, b) {
   do_execute(
-    wait_stream: wait_stream |> configure_wait_stream(mode),
+    wait_stream: wait_stream |> prepare_wait_stream(mode),
     allow:,
     mode:,
     operation:,
@@ -213,7 +213,7 @@ pub fn execute_with_options(
   )
 }
 
-fn configure_wait_stream(
+fn prepare_wait_stream(
   wait_stream wait_stream: Yielder(Int),
   mode mode: Mode,
 ) -> Yielder(Int) {
