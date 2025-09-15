@@ -199,7 +199,7 @@ pub fn execute_with_options(
   clock clock: clock.Clock,
 ) -> RetryData(a, b) {
   do_execute(
-    wait_stream: wait_stream |> prepare_wait_stream(mode),
+    wait_stream: prepare_wait_stream(wait_stream, mode),
     allow:,
     mode:,
     operation:,
@@ -208,7 +208,7 @@ pub fn execute_with_options(
     clock:,
     errors_acc: [],
     attempt: 0,
-    start_time: clock |> clock.now(),
+    start_time: clock.now(clock),
     duration: 0,
   )
 }
@@ -223,7 +223,7 @@ fn prepare_wait_stream(
     |> yielder.map(int.max(_, 0))
 
   case mode {
-    MaxAttempts(max_attempts) -> wait_stream |> yielder.take(max_attempts)
+    MaxAttempts(max_attempts) -> yielder.take(wait_stream, max_attempts)
     Expiry(expiry, expiry_mode) -> {
       use remaining_time, wait_time <- yielder.transform(
         wait_stream,
@@ -268,27 +268,27 @@ fn do_execute(
 ) -> RetryData(a, b) {
   case yielder.step(wait_stream) {
     yielder.Done -> {
-      let errors = errors_acc |> list.reverse
+      let errors = list.reverse(errors_acc)
       let error = case mode {
         MaxAttempts(_) -> RetriesExhausted(errors)
         Expiry(_, _) -> TimeExhausted(errors)
       }
       RetryData(
         result: Error(error),
-        wait_times: wait_time_acc |> list.reverse,
+        wait_times: list.reverse(wait_time_acc),
         duration:,
       )
     }
     yielder.Next(wait_time, wait_stream) -> {
       wait_function(wait_time)
       let wait_time_acc = [wait_time, ..wait_time_acc]
-      let duration = duration_ms(start_time, clock.now(clock))
+      let duration = clock |> clock.now |> duration_ms(start_time, _)
 
       case operation(attempt) {
         Ok(result) ->
           RetryData(
             result: Ok(result),
-            wait_times: wait_time_acc |> list.reverse,
+            wait_times: list.reverse(wait_time_acc),
             duration:,
           )
         Error(error) -> {
@@ -310,7 +310,7 @@ fn do_execute(
             False ->
               RetryData(
                 result: Error(UnallowedError(error)),
-                wait_times: wait_time_acc |> list.reverse,
+                wait_times: list.reverse(wait_time_acc),
                 duration:,
               )
           }
