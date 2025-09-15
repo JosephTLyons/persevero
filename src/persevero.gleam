@@ -246,10 +246,10 @@ fn configure_exact_expiry_wait_stream(
           configure_exact_expiry_wait_stream(
             int.max(expiry - wait_time, 0),
             wait_stream,
-            yielder.append(
-              acc,
-              yielder.once(fn() { int.min(expiry, wait_time) }),
-            ),
+            expiry
+              |> int.min(wait_time)
+              |> yielder.single
+              |> yielder.append(acc, _),
           )
         }
       }
