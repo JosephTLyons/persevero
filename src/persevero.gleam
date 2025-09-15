@@ -138,21 +138,26 @@ pub type Mode {
   /// Specifies the maximum number of attempts to make.
   MaxAttempts(Int)
 
-  // TODO: Update documentation
   /// Specifies the maximum duration, in ms, to make attempts for.
   ///
-  /// Note that `Expiry` mode does not prevent the current wait time from
-  /// spilling over past the timeout. For example, if you're currently under the
-  /// expiry timeout by 1s and your current wait time is 10s, this wait time,
-  /// and the attempt on the operation, will still be run, resulting in
-  /// spillover. Also note that the duration measured includes the time it takes
-  /// to run your operation.
+  /// The duration measured includes the time it takes to run your operation.
+  /// The behavior when approaching the expiry time is controlled by the
+  /// `ExpiryMode` parameter.
   Expiry(Int, mode: ExpiryMode)
 }
 
-// TODO: Document - mention does not include operation time
+/// Controls how the retry mechanism behaves when approaching the expiry time.
 pub type ExpiryMode {
+  /// Ensures the total retry duration never exceeds the expiry time by
+  /// trimming the final wait time if necessary. For example, if 5ms remain
+  /// until expiry and the next wait time would be 10ms, it will be trimmed
+  /// to 5ms.
   Exact
+
+  /// Allows the final wait time to complete even if it exceeds the expiry
+  /// time. For example, if 5ms remain until expiry and the next wait time
+  /// is 10ms, the full 10ms wait will occur, causing the total duration to
+  /// exceed the expiry time.
   Spillover
 }
 
