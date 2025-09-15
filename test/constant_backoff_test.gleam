@@ -72,7 +72,7 @@ pub fn positive_4_constant_backoff_with_all_allowed_errors_is_successful_test() 
   assert wait_times == [0, 100, 100, 100]
 }
 
-pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() {
+pub fn expiry_spillover_300_constant_backoff_with_all_allowed_errors_is_successful_test() {
   let expiry = 300
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
@@ -232,7 +232,7 @@ pub fn positive_3_times_retry_fails_on_non_allowed_error_test() {
 }
 
 // Same as comment below
-pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+pub fn expiry_spillover_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let expiry = -1
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
@@ -256,7 +256,7 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
 // mean that one attempt is allowed. When set to MaxAttempts(0), we don't allow
 // any attempts, but the first run is a 0 wait delay run, so maybe Expiry == 0
 // should allow one attempt.
-pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+pub fn expiry_spillover_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let expiry = 0
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
@@ -276,7 +276,7 @@ pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   assert result == Error(TimeExhausted([]))
 }
 
-pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+pub fn expiry_spillover_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let expiry = 10_000
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
@@ -302,7 +302,7 @@ pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test
   assert result == Error(TimeExhausted(expected_errors))
 }
 
-pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
+pub fn expiry_spillover_300_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let expiry = 300
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
