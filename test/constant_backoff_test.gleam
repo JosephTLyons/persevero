@@ -303,7 +303,7 @@ pub fn expiry_spillover_10000_constant_backoff_with_all_allowed_errors_time_exha
 }
 
 pub fn expiry_spillover_300_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
-  let expiry = 300
+  let expiry = 250
   let fake_clock = fake_clock.new()
   let constant_backoff_time = 100
 
@@ -332,7 +332,7 @@ pub fn expiry_spillover_300_constant_backoff_with_all_allowed_errors_time_exhaus
     )
 
   assert wait_times == [0, 100, 100, 100]
-  assert duration == expiry
+  assert duration == 300
   assert result
     == Error(
       TimeExhausted([
