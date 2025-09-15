@@ -207,7 +207,6 @@ pub fn execute_with_options(
     wait_time_acc: [],
     clock:,
     errors_acc: [],
-    attempt: 0,
     start_time: clock.now(clock),
     duration: 0,
   )
@@ -217,16 +216,18 @@ pub fn execute_with_options(
 pub fn prepare_wait_stream(
   wait_stream wait_stream: Yielder(Int),
   mode mode: Mode,
-) -> Yielder(Int) {
+) -> Yielder(#(Int, Int)) {
   let wait_stream =
     wait_stream
     |> yielder.prepend(0)
     |> yielder.map(int.max(_, 0))
+    |> yielder.index
 
   case mode {
     MaxAttempts(max_attempts) -> yielder.take(wait_stream, max_attempts)
     Expiry(expiry, expiry_mode) -> {
-      use remaining_time, wait_time <- yielder.transform(wait_stream, expiry)
+      use remaining_time, tuple <- yielder.transform(wait_stream, expiry)
+      let #(wait_time, attempt) = tuple
       case remaining_time {
         remaining if remaining <= 0 -> yielder.Done
         _ -> {
@@ -234,7 +235,7 @@ pub fn prepare_wait_stream(
             Spillover -> wait_time
             Exact -> int.min(wait_time, remaining_time)
           }
-          yielder.Next(actual_wait, remaining_time - actual_wait)
+          yielder.Next(#(actual_wait, attempt), remaining_time - actual_wait)
         }
       }
     }
@@ -252,7 +253,7 @@ pub fn duration_ms(left: Timestamp, right: Timestamp) -> Int {
 }
 
 fn do_execute(
-  wait_stream wait_stream: Yielder(Int),
+  wait_stream wait_stream: Yielder(#(Int, Int)),
   allow allow: fn(b) -> Bool,
   mode mode: Mode,
   operation operation: fn(Int) -> Result(a, b),
@@ -260,7 +261,6 @@ fn do_execute(
   wait_time_acc wait_time_acc: List(Int),
   clock clock: clock.Clock,
   errors_acc errors_acc: List(b),
-  attempt attempt: Int,
   start_time start_time: Timestamp,
   duration duration: Int,
 ) -> RetryData(a, b) {
@@ -277,7 +277,7 @@ fn do_execute(
         duration:,
       )
     }
-    yielder.Next(wait_time, wait_stream) -> {
+    yielder.Next(#(wait_time, attempt), wait_stream) -> {
       wait_function(wait_time)
       let wait_time_acc = [wait_time, ..wait_time_acc]
       let duration = clock |> clock.now |> duration_ms(start_time, _)
@@ -301,7 +301,6 @@ fn do_execute(
                 wait_time_acc:,
                 clock:,
                 errors_acc: [error, ..errors_acc],
-                attempt: attempt + 1,
                 start_time:,
                 duration:,
               )
