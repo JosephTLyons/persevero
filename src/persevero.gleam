@@ -220,40 +220,19 @@ fn configure_wait_stream(
   case mode {
     MaxAttempts(max_attempts) -> wait_stream |> yielder.take(max_attempts)
     Expiry(expiry, expiry_mode) ->
-      case expiry_mode {
-        Spillover -> wait_stream
-        Exact ->
-          configure_exact_expiry_wait_stream(
-            expiry,
-            wait_stream,
-            yielder.empty(),
-          )
-      }
-  }
-}
-
-fn configure_exact_expiry_wait_stream(
-  expiry: Int,
-  source_wait_stream: Yielder(Int),
-  acc: Yielder(Int),
-) -> Yielder(Int) {
-  case expiry {
-    expiry if expiry <= 0 -> acc
-    _ -> {
-      case yielder.step(source_wait_stream) {
-        yielder.Done -> acc
-        yielder.Next(wait_time, wait_stream) -> {
-          configure_exact_expiry_wait_stream(
-            int.max(expiry - wait_time, 0),
-            wait_stream,
-            expiry
-              |> int.min(wait_time)
-              |> yielder.single
-              |> yielder.append(acc, _),
-          )
+      wait_stream
+      |> yielder.transform(from: expiry, with: fn(remaining_time, wait_time) {
+        case remaining_time {
+          remaining if remaining <= 0 -> yielder.Done
+          _ -> {
+            let actual_wait = case expiry_mode {
+              Spillover -> wait_time
+              Exact -> int.min(wait_time, remaining_time)
+            }
+            yielder.Next(actual_wait, remaining_time - actual_wait)
+          }
         }
-      }
-    }
+      })
   }
 }
 
@@ -280,13 +259,20 @@ fn do_execute(
   start_time start_time: Timestamp,
   duration duration: Int,
 ) -> RetryData(a, b) {
-  let should_execute = case mode {
-    MaxAttempts(max_attempts) -> max_attempts > 0
-    Expiry(expiry, _) -> expiry > 0 && duration < expiry
-  }
-
-  case should_execute, wait_stream |> yielder.step() {
-    True, yielder.Next(wait_time, wait_stream) -> {
+  case yielder.step(wait_stream) {
+    yielder.Done -> {
+      let errors = errors_acc |> list.reverse
+      let error = case mode {
+        MaxAttempts(_) -> RetriesExhausted(errors)
+        Expiry(_, _) -> TimeExhausted(errors)
+      }
+      RetryData(
+        result: Error(error),
+        wait_times: wait_time_acc |> list.reverse,
+        duration:,
+      )
+    }
+    yielder.Next(wait_time, wait_stream) -> {
       wait_function(wait_time)
       let wait_time_acc = [wait_time, ..wait_time_acc]
       let duration = duration_ms(start_time, clock.now(clock))
@@ -323,18 +309,6 @@ fn do_execute(
           }
         }
       }
-    }
-    _, _ -> {
-      let errors = errors_acc |> list.reverse
-      let error = case mode {
-        MaxAttempts(_) -> RetriesExhausted(errors)
-        Expiry(_, _) -> TimeExhausted(errors)
-      }
-      RetryData(
-        result: Error(error),
-        wait_times: wait_time_acc |> list.reverse,
-        duration:,
-      )
     }
   }
 }
