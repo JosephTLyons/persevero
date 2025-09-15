@@ -213,7 +213,8 @@ pub fn execute_with_options(
   )
 }
 
-fn prepare_wait_stream(
+@internal
+pub fn prepare_wait_stream(
   wait_stream wait_stream: Yielder(Int),
   mode mode: Mode,
 ) -> Yielder(Int) {

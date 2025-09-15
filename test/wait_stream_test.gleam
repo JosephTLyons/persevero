@@ -58,3 +58,44 @@ pub fn apply_cap_test() {
     |> yielder.to_list
     == [5, 10, 15, 15, 15]
 }
+
+// Test prepare stream ---------------------------------------------------------
+
+pub fn max_attempts_prepare_wait_stream_test() {
+  assert persevero.linear_backoff(5, 5)
+    |> persevero.prepare_wait_stream(persevero.MaxAttempts(3))
+    |> yielder.to_list
+    == [0, 5, 10]
+}
+
+pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
+  // When remaining time exactly matches next wait time, no truncation needed
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(persevero.Expiry(10, persevero.Exact))
+    |> yielder.to_list
+    == [0, 5, 5]
+}
+
+pub fn prepare_wait_stream_expiry_exact_with_truncation_test() {
+  // When next wait time exceeds remaining time, it gets truncated to fit
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(persevero.Expiry(11, persevero.Exact))
+    |> yielder.to_list
+    == [0, 5, 5, 1]
+}
+
+pub fn prepare_wait_stream_expiry_spillover_fits_perfectly_test() {
+  // When remaining time exactly matches next wait time, full wait is used
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(persevero.Expiry(10, persevero.Spillover))
+    |> yielder.to_list
+    == [0, 5, 5]
+}
+
+pub fn prepare_wait_stream_expiry_spillover_exceeds_limit_test() {
+  // When next wait time would exceed limit, Spillover allows the full wait
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(persevero.Expiry(11, persevero.Spillover))
+    |> yielder.to_list
+    == [0, 5, 5, 5]
+}
