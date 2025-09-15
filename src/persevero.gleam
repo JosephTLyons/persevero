@@ -225,10 +225,7 @@ fn prepare_wait_stream(
   case mode {
     MaxAttempts(max_attempts) -> yielder.take(wait_stream, max_attempts)
     Expiry(expiry, expiry_mode) -> {
-      use remaining_time, wait_time <- yielder.transform(
-        wait_stream,
-        from: expiry,
-      )
+      use remaining_time, wait_time <- yielder.transform(wait_stream, expiry)
       case remaining_time {
         remaining if remaining <= 0 -> yielder.Done
         _ -> {
