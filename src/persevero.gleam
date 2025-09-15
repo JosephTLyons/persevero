@@ -224,20 +224,22 @@ fn configure_wait_stream(
 
   case mode {
     MaxAttempts(max_attempts) -> wait_stream |> yielder.take(max_attempts)
-    Expiry(expiry, expiry_mode) ->
-      wait_stream
-      |> yielder.transform(from: expiry, with: fn(remaining_time, wait_time) {
-        case remaining_time {
-          remaining if remaining <= 0 -> yielder.Done
-          _ -> {
-            let actual_wait = case expiry_mode {
-              Spillover -> wait_time
-              Exact -> int.min(wait_time, remaining_time)
-            }
-            yielder.Next(actual_wait, remaining_time - actual_wait)
+    Expiry(expiry, expiry_mode) -> {
+      use remaining_time, wait_time <- yielder.transform(
+        wait_stream,
+        from: expiry,
+      )
+      case remaining_time {
+        remaining if remaining <= 0 -> yielder.Done
+        _ -> {
+          let actual_wait = case expiry_mode {
+            Spillover -> wait_time
+            Exact -> int.min(wait_time, remaining_time)
           }
+          yielder.Next(actual_wait, remaining_time - actual_wait)
         }
-      })
+      }
+    }
   }
 }
 
