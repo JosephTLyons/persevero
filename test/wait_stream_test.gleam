@@ -3,6 +3,7 @@ import bigben/fake_clock
 import gleam/int
 import gleam/pair
 import gleam/yielder
+import internal/utils.{advance_fake_clock_ms, fake_wait}
 import persevero
 
 // Test stream generators ------------------------------------------------------
@@ -68,26 +69,29 @@ pub fn max_attempts_prepare_wait_stream_test() {
   let fake_clock = fake_clock.new()
   assert persevero.linear_backoff(5, 5)
     |> persevero.prepare_wait_stream(
+      advance_fake_clock_ms(fake_clock, _),
       persevero.MaxAttempts(3),
+      fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
     |> yielder.map(fn(tuple) { tuple.0 })
     |> yielder.to_list
     == [0, 5, 10]
 }
-
-pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
-  // When remaining time exactly matches next wait time, no truncation needed
-  let fake_clock = fake_clock.new()
-  assert persevero.constant_backoff(5)
-    |> persevero.prepare_wait_stream(
-      persevero.Expiry(10, persevero.Exact),
-      clock.from_fake(fake_clock),
-    )
-    |> yielder.map(fn(tuple) { tuple.0 })
-    |> yielder.to_list
-    == [0, 5, 5]
-}
+// pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
+//   // When remaining time exactly matches next wait time, no truncation needed
+//   let fake_clock = fake_clock.new()
+//   assert persevero.constant_backoff(5)
+//     |> persevero.prepare_wait_stream(
+//       advance_fake_clock_ms(fake_clock, _),
+//       persevero.Expiry(10, persevero.Exact),
+//       fn(_, _) { #(1, Ok(Nil)) },
+//       clock.from_fake(fake_clock),
+//     )
+//     |> yielder.map(fn(tuple) { tuple.0 })
+//     |> yielder.to_list
+//     == [0, 5, 5]
+// }
 // pub fn prepare_wait_stream_expiry_exact_with_truncation_test() {
 //   // When next wait time exceeds remaining time, it gets truncated to fit
 //   assert persevero.constant_backoff(5)

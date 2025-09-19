@@ -4,12 +4,14 @@ import internal/mock_types.{
   ValidData,
 }
 import internal/utils.{fake_wait}
-import persevero.{MaxAttempts, RetryData, all_errors}
+import persevero.{
+  MaxAttempts, OperationDuration, RetryData, WaitDuration, all_errors,
+}
 
 // -------------------- Success
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant_multiplier_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(50, 2)
     |> persevero.apply_constant(1)
     |> persevero.apply_multiplier(3)
@@ -22,17 +24,16 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
         }
       },
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
+          0 -> #(1, Error(ConnectionTimeout))
           // 2, wait 100
-          1 -> Error(ServerUnavailable)
+          1 -> #(2, Error(ServerUnavailable))
           // 3, wait 100
           // succeed
-          2 -> Ok(SuccessfulConnection)
+          2 -> #(3, Ok(SuccessfulConnection))
           // Doesn't reach
-          3 -> Error(InvalidResponse)
+          3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -40,11 +41,19 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 154, 304]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(154),
+      OperationDuration(2),
+      WaitDuration(304),
+      OperationDuration(3),
+    ]
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_cap_constant_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(50, 3)
     |> persevero.apply_cap(100)
     |> persevero.apply_constant(3)
@@ -56,17 +65,12 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_cap_cons
         }
       },
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 53
-          1 -> Error(ServerUnavailable)
-          // 3, wait 103
-          // succeed
-          2 -> Ok(SuccessfulConnection)
-          // Doesn't reach
-          3 -> Error(InvalidResponse)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Ok(SuccessfulConnection))
+          3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -74,11 +78,19 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_cap_cons
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 53, 103]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(53),
+      OperationDuration(2),
+      WaitDuration(103),
+      OperationDuration(3),
+    ]
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant_cap_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(50, 2)
     |> persevero.apply_constant(3)
     |> persevero.apply_cap(100)
@@ -90,17 +102,12 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
         }
       },
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 53
-          1 -> Error(ServerUnavailable)
-          // 3, wait 100
-          // succeed
-          2 -> Ok(SuccessfulConnection)
-          // Doesn't reach
-          3 -> Error(InvalidResponse)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Ok(SuccessfulConnection))
+          3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -108,26 +115,29 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 53, 100]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(53),
+      OperationDuration(2),
+      WaitDuration(100),
+      OperationDuration(3),
+    ]
 }
 
 pub fn positive_4_exponential_backoff_on_all_allowed_errors_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(100, 2)
     |> persevero.execute_with_options(
       allow: all_errors,
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 100
-          1 -> Error(ServerUnavailable)
-          // 3, wait 200
-          2 -> Error(InvalidResponse)
-          // 4, wait 400
-          // succeed
-          3 -> Ok(ValidData)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Error(InvalidResponse))
+          3 -> #(4, Ok(ValidData))
           _ -> panic
         }
       },
@@ -135,11 +145,21 @@ pub fn positive_4_exponential_backoff_on_all_allowed_errors_is_successful_test()
       clock: clock.new(),
     )
   assert result == Ok(ValidData)
-  assert wait_times == [0, 100, 200, 400]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(100),
+      OperationDuration(2),
+      WaitDuration(200),
+      OperationDuration(3),
+      WaitDuration(400),
+      OperationDuration(4),
+    ]
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(100, 3)
     |> persevero.execute_with_options(
       allow: fn(error) {
@@ -149,17 +169,12 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_is_successful_test(
         }
       },
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 100
-          1 -> Error(ServerUnavailable)
-          // 3, wait 300
-          // succeed
-          2 -> Ok(SuccessfulConnection)
-          // Doesn't reach
-          3 -> Error(InvalidResponse)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Ok(SuccessfulConnection))
+          3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -167,11 +182,19 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_is_successful_test(
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 100, 300]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(100),
+      OperationDuration(2),
+      WaitDuration(300),
+      OperationDuration(3),
+    ]
 }
 
 pub fn positive_5_exponential_backoff_on_some_allowed_errors_with_apply_cap_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.exponential_backoff(500, 2)
     |> persevero.apply_cap(1000)
     |> persevero.execute_with_options(
@@ -182,21 +205,14 @@ pub fn positive_5_exponential_backoff_on_some_allowed_errors_with_apply_cap_is_s
         }
       },
       mode: MaxAttempts(5),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 500
-          1 -> Error(ServerUnavailable)
-          // 3, wait 1000
-          2 -> Error(ConnectionTimeout)
-          // 4, wait 1000
-          3 -> Error(ServerUnavailable)
-          // 5, wait 1000
-          // succeed
-          4 -> Ok(SuccessfulConnection)
-          // Doesn't reach
-          5 -> Error(InvalidResponse)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Error(ConnectionTimeout))
+          3 -> #(4, Error(ServerUnavailable))
+          4 -> #(5, Ok(SuccessfulConnection))
+          5 -> #(6, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -204,5 +220,18 @@ pub fn positive_5_exponential_backoff_on_some_allowed_errors_with_apply_cap_is_s
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 500, 1000, 1000, 1000]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(500),
+      OperationDuration(2),
+      WaitDuration(1000),
+      OperationDuration(3),
+      WaitDuration(1000),
+      OperationDuration(4),
+      WaitDuration(1000),
+      OperationDuration(5),
+    ]
 }
+// TODO: Remove all fake operation comments

@@ -4,27 +4,24 @@ import internal/mock_types.{
   ValidData,
 }
 import internal/utils.{fake_wait}
-import persevero.{MaxAttempts, RetryData, all_errors}
+import persevero.{
+  MaxAttempts, OperationDuration, RetryData, WaitDuration, all_errors,
+}
 
 // -------------------- Success
 
 pub fn positive_4_linear_backoff_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+  let RetryData(result, durations, _) =
     persevero.linear_backoff(100, 100)
     |> persevero.execute_with_options(
       allow: all_errors,
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 100
-          1 -> Error(ServerUnavailable)
-          // 3, wait 200
-          2 -> Error(InvalidResponse)
-          // 4, wait 300
-          // succeed
-          3 -> Ok(ValidData)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Error(InvalidResponse))
+          3 -> #(4, Ok(ValidData))
           _ -> panic
         }
       },
@@ -32,26 +29,31 @@ pub fn positive_4_linear_backoff_is_successful_test() {
       clock: clock.new(),
     )
   assert result == Ok(ValidData)
-  assert wait_times == [0, 100, 200, 300]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(100),
+      OperationDuration(2),
+      WaitDuration(200),
+      OperationDuration(3),
+      WaitDuration(300),
+      OperationDuration(4),
+    ]
 }
 
-pub fn positive_4_negative_wait_time_linear_backoff_is_successful_test() {
-  let RetryData(result, wait_times, _) =
+pub fn positive_4_negative_wait_duration_linear_backoff_is_successful_test() {
+  let RetryData(result, durations, _) =
     persevero.linear_backoff(-100, -1000)
     |> persevero.execute_with_options(
       allow: all_errors,
       mode: MaxAttempts(4),
-      operation: fn(attempt) {
+      operation: fn(attempt, _) {
         case attempt {
-          // 1, wait 0
-          0 -> Error(ConnectionTimeout)
-          // 2, wait 0
-          1 -> Error(ServerUnavailable)
-          // 3, wait 0
-          // succeed
-          2 -> Ok(SuccessfulConnection)
-          // Doesn't reach
-          3 -> Error(InvalidResponse)
+          0 -> #(1, Error(ConnectionTimeout))
+          1 -> #(2, Error(ServerUnavailable))
+          2 -> #(3, Ok(SuccessfulConnection))
+          3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
       },
@@ -59,5 +61,13 @@ pub fn positive_4_negative_wait_time_linear_backoff_is_successful_test() {
       clock: clock.new(),
     )
   assert result == Ok(SuccessfulConnection)
-  assert wait_times == [0, 0, 0]
+  assert durations
+    == [
+      WaitDuration(0),
+      OperationDuration(1),
+      WaitDuration(0),
+      OperationDuration(2),
+      WaitDuration(0),
+      OperationDuration(3),
+    ]
 }
