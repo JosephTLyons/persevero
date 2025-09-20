@@ -75,8 +75,10 @@ pub type RetryData(a, b) {
 @internal
 pub type StreamData(a, b) {
   StreamData(
-    result: RetryResult(a, b),
-    durations: List(Duration),
+    wait_duration: Int,
+    attempt: Int,
+    operation_duration: Int,
+    operation_result: Result(a, b),
     total_duration: Int,
   )
 }
@@ -236,8 +238,7 @@ pub fn prepare_wait_stream(
   mode mode: Mode,
   operation operation: fn(Int, clock.Clock) -> #(Int, Result(a, b)),
   clock clock: clock.Clock,
-  // TODO: Better type here
-) -> Yielder(#(Int, Int, Int, Result(a, b), Int)) {
+) -> Yielder(StreamData(a, b)) {
   let start_time = clock.now(clock)
 
   case mode {
@@ -255,7 +256,7 @@ pub fn prepare_wait_stream(
         }
         let #(operation_duration, operation_result) = operation(attempt, clock)
         let total_duration = duration_ms(start_time, clock.now(clock))
-        #(
+        StreamData(
           wait_duration,
           attempt,
           operation_duration,
@@ -283,7 +284,7 @@ pub fn prepare_wait_stream(
             let total_duration = duration_ms(start_time, clock.now(clock))
 
             yielder.Next(
-              #(
+              StreamData(
                 wait_duration,
                 attempt,
                 operation_duration,
@@ -312,7 +313,7 @@ pub fn duration_ms(left: Timestamp, right: Timestamp) -> Int {
 
 // TODO: Move all of this into yielder
 fn do_execute(
-  wait_stream wait_stream: Yielder(#(Int, Int, Int, Result(a, b), Int)),
+  wait_stream wait_stream: Yielder(StreamData(a, b)),
   allow allow: fn(b) -> Bool,
   mode mode: Mode,
   durations durations: List(Duration),
@@ -333,7 +334,13 @@ fn do_execute(
       )
     }
     yielder.Next(
-      #(wait_duration, _, operation_duration, operation_result, total_duration),
+      StreamData(
+        wait_duration,
+        _,
+        operation_duration,
+        operation_result,
+        total_duration,
+      ),
       wait_stream,
     ) -> {
       let durations = [
