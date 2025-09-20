@@ -166,27 +166,10 @@ pub type Mode {
   /// Specifies the maximum duration, in ms, to make attempts for.
   ///
   /// The duration measured includes the time it takes to run your operation.
-  /// The behavior when approaching the expiry time is controlled by the
-  /// `ExpiryMode` parameter.
-  Expiry(Int, mode: ExpiryMode)
+  Expiry(Int)
 }
 
-/// Controls how the retry mechanism behaves when approaching the expiry time.
-pub type ExpiryMode {
-  /// Ensures the total retry duration never exceeds the expiry time by
-  /// trimming the final wait time if necessary. For example, if 5ms remain
-  /// until expiry and the next wait time would be 10ms, it will be trimmed
-  /// to 5ms.
-  Exact
-
-  /// Allows the final wait time to complete even if it exceeds the expiry
-  /// time. For example, if 5ms remain until expiry and the next wait time
-  /// is 10ms, the full 10ms wait will occur, causing the total duration to
-  /// exceed the expiry time.
-  Spillover
-}
-
-// TODO: Remove Exact?
+// TODO: Have agent explain and document when expiry stops
 
 /// Initiates the execution process with the specified operation.
 ///
@@ -257,60 +240,62 @@ pub fn prepare_wait_stream(
 ) -> Yielder(#(Int, Int, Int, Result(a, b), Int)) {
   let start_time = clock.now(clock)
 
-  let wait_stream =
-    wait_stream
-    |> yielder.prepend(0)
-    |> yielder.map(int.max(_, 0))
-    |> yielder.index
-    |> yielder.map(fn(wait_duration_attempt) {
-      let #(wait_duration, attempt) = wait_duration_attempt
-      case attempt {
-        0 -> Nil
-        _ -> wait_function(wait_duration)
-      }
-      let #(operation_duration, operation_result) = operation(attempt, clock)
-      let total_duration = duration_ms(start_time, clock.now(clock))
-      #(
-        wait_duration,
-        attempt,
-        operation_duration,
-        operation_result,
-        total_duration,
-      )
-    })
-
   case mode {
-    MaxAttempts(max_attempts) -> yielder.take(wait_stream, max_attempts)
-    Expiry(expiry, expiry_mode) -> {
-      use _, tuple <- yielder.transform(wait_stream, Nil)
-      let #(
-        wait_duration,
-        attempt,
-        operation_duration,
-        operation_result,
-        total_duration,
-      ) = tuple
-
-      echo #(total_duration, expiry)
-      case total_duration >= expiry {
-        True -> yielder.Done
-        False -> {
-          let actual_wait = case expiry_mode {
-            Spillover -> wait_duration
-            Exact -> int.min(wait_duration, expiry - total_duration)
-          }
-          yielder.Next(
-            #(
-              actual_wait,
-              attempt,
-              operation_duration,
-              operation_result,
-              total_duration,
-            ),
-            Nil,
-          )
+    MaxAttempts(max_attempts) -> {
+      wait_stream
+      |> yielder.prepend(0)
+      |> yielder.map(int.max(_, 0))
+      |> yielder.index
+      |> yielder.take(max_attempts)
+      |> yielder.map(fn(wait_duration_attempt) {
+        let #(wait_duration, attempt) = wait_duration_attempt
+        case attempt {
+          0 -> Nil
+          _ -> wait_function(wait_duration)
         }
-      }
+        let #(operation_duration, operation_result) = operation(attempt, clock)
+        let total_duration = duration_ms(start_time, clock.now(clock))
+        #(
+          wait_duration,
+          attempt,
+          operation_duration,
+          operation_result,
+          total_duration,
+        )
+      })
+    }
+    Expiry(expiry) -> {
+      wait_stream
+      |> yielder.prepend(0)
+      |> yielder.map(int.max(_, 0))
+      |> yielder.index
+      |> yielder.transform(Nil, fn(_, wait_duration_attempt) {
+        let #(wait_duration, attempt) = wait_duration_attempt
+        let current_time = duration_ms(start_time, clock.now(clock))
+        case current_time < expiry {
+          True -> {
+            case attempt {
+              0 -> Nil
+              _ -> wait_function(wait_duration)
+            }
+            let #(operation_duration, operation_result) =
+              operation(attempt, clock)
+            let total_duration = duration_ms(start_time, clock.now(clock))
+
+            yielder.Next(
+              #(
+                wait_duration,
+                attempt,
+                operation_duration,
+                operation_result,
+                total_duration,
+              ),
+              Nil,
+            )
+          }
+          False -> yielder.Done
+        }
+      })
     }
   }
 }
@@ -339,7 +324,7 @@ fn do_execute(
       let errors = list.reverse(errors_acc)
       let error = case mode {
         MaxAttempts(_) -> RetriesExhausted(errors)
-        Expiry(_, _) -> TimeExhausted(errors)
+        Expiry(_) -> TimeExhausted(errors)
       }
       RetryData(
         result: Error(error),

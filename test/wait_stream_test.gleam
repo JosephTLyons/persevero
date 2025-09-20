@@ -1,9 +1,8 @@
 import bigben/clock
 import bigben/fake_clock
 import gleam/int
-import gleam/pair
 import gleam/yielder
-import internal/utils.{advance_fake_clock_ms, fake_wait}
+import internal/utils.{advance_fake_clock_ms}
 import persevero
 
 // Test stream generators ------------------------------------------------------
@@ -78,53 +77,60 @@ pub fn max_attempts_prepare_wait_stream_test() {
     |> yielder.to_list
     == [0, 5, 10]
 }
-// pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
-//   // When remaining time exactly matches next wait time, no truncation needed
-//   let fake_clock = fake_clock.new()
-//   assert persevero.constant_backoff(5)
-//     |> persevero.prepare_wait_stream(
-//       advance_fake_clock_ms(fake_clock, _),
-//       persevero.Expiry(10, persevero.Exact),
-//       fn(_, _) { #(1, Ok(Nil)) },
-//       clock.from_fake(fake_clock),
-//     )
-//     |> yielder.map(fn(tuple) { tuple.0 })
-//     |> yielder.to_list
-//     == [0, 5, 5]
-// }
-// pub fn prepare_wait_stream_expiry_exact_with_truncation_test() {
-//   // When next wait time exceeds remaining time, it gets truncated to fit
-//   assert persevero.constant_backoff(5)
-//     |> persevero.prepare_wait_stream(persevero.Expiry(11, persevero.Exact))
-//     |> yielder.map(pair.first)
-//     |> yielder.to_list
-//     == [0, 5, 5, 1]
-// }
 
-// pub fn prepare_wait_stream_expiry_spillover_fits_perfectly_test() {
-//   // When remaining time exactly matches next wait time, full wait is used
-//   assert persevero.constant_backoff(5)
-//     |> persevero.prepare_wait_stream(persevero.Expiry(10, persevero.Spillover))
-//     |> yielder.map(pair.first)
-//     |> yielder.to_list
-//     == [0, 5, 5]
-// }
+pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
+  let fake_clock = fake_clock.new()
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(
+      advance_fake_clock_ms(fake_clock, _),
+      persevero.Expiry(10),
+      fn(_, _) { #(1, Ok(Nil)) },
+      clock.from_fake(fake_clock),
+    )
+    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.to_list
+    == [0, 5, 5]
+}
 
-// pub fn prepare_wait_stream_expiry_spillover_exceeds_limit_test() {
-//   // When next wait time would exceed limit, Spillover allows the full wait
-//   assert persevero.constant_backoff(5)
-//     |> persevero.prepare_wait_stream(persevero.Expiry(21, persevero.Spillover))
-//     |> yielder.map(fn(tuple) { tuple.0 })
-//     |> yielder.to_list
-//     == [0, 5, 5, 5, 5, 5]
-// }
+pub fn prepare_wait_stream_expiry_fits_perfectly_test() {
+  let fake_clock = fake_clock.new()
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(
+      advance_fake_clock_ms(fake_clock, _),
+      persevero.Expiry(10),
+      fn(_, _) { #(1, Ok(Nil)) },
+      clock.from_fake(fake_clock),
+    )
+    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.to_list
+    == [0, 5, 5]
+}
 
-// pub fn prepare_wait_stream_tracks_attempts_test() {
-//   // Verify that attempts are correctly indexed starting from 0
-//   assert persevero.constant_backoff(10)
-//     |> persevero.prepare_wait_stream(persevero.MaxAttempts(4))
-//     |> yielder.map(pair.second)
-//     // Get the attempt number
-//     |> yielder.to_list
-//     == [0, 1, 2, 3]
-// }
+pub fn prepare_wait_stream_expiry_exceeds_limit_test() {
+  let fake_clock = fake_clock.new()
+  assert persevero.constant_backoff(5)
+    |> persevero.prepare_wait_stream(
+      advance_fake_clock_ms(fake_clock, _),
+      persevero.Expiry(21),
+      fn(_, _) { #(1, Ok(Nil)) },
+      clock.from_fake(fake_clock),
+    )
+    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.to_list
+    == [0, 5, 5, 5, 5, 5]
+}
+
+pub fn prepare_wait_stream_tracks_attempts_test() {
+  let fake_clock = fake_clock.new()
+  assert persevero.constant_backoff(10)
+    |> persevero.prepare_wait_stream(
+      advance_fake_clock_ms(fake_clock, _),
+      persevero.MaxAttempts(4),
+      fn(_, _) { #(1, Ok(Nil)) },
+      clock.from_fake(fake_clock),
+    )
+    |> yielder.map(fn(tuple) { tuple.1 })
+    // Get the attempt number
+    |> yielder.to_list
+    == [0, 1, 2, 3]
+}

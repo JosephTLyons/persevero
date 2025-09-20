@@ -1,7 +1,7 @@
 import gleam/http/request
 import gleam/httpc
 import gleam/io
-import persevero.{Spillover}
+import persevero
 
 pub fn main() {
   let assert Ok(request) = request.to("https://www.apple.com")
@@ -10,7 +10,7 @@ pub fn main() {
     use <- persevero.execute(
       wait_stream: persevero.constant_backoff(100),
       allow: persevero.all_errors,
-      mode: persevero.Expiry(10_000, Spillover),
+      mode: persevero.Expiry(10_000),
     )
 
     httpc.send(request)
