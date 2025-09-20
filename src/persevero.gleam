@@ -240,12 +240,15 @@ pub fn prepare_wait_stream(
 ) -> Yielder(StreamData(a, b)) {
   let start_time = clock.now(clock)
 
+  let wait_stream =
+    wait_stream
+    |> yielder.prepend(0)
+    |> yielder.map(int.max(_, 0))
+    |> yielder.index
+
   case mode {
     MaxAttempts(max_attempts) -> {
       wait_stream
-      |> yielder.prepend(0)
-      |> yielder.map(int.max(_, 0))
-      |> yielder.index
       |> yielder.take(max_attempts)
       |> yielder.map(fn(wait_duration_attempt) {
         let #(wait_duration, attempt) = wait_duration_attempt
@@ -266,9 +269,6 @@ pub fn prepare_wait_stream(
     }
     Expiry(expiry) -> {
       wait_stream
-      |> yielder.prepend(0)
-      |> yielder.map(int.max(_, 0))
-      |> yielder.index
       |> yielder.transform(Nil, fn(_, wait_duration_attempt) {
         let #(wait_duration, attempt) = wait_duration_attempt
         let total_duration = duration_ms(start_time, clock.now(clock))
