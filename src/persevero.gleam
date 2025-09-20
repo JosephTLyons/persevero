@@ -382,3 +382,11 @@ fn do_execute(
 
 // TODO: Have yielder return RetryData directly (or YielderData), then we just
 // need execute to run through the generator and return
+
+// TODO: Consider if we should bail in expiry if there isn't enough time left
+// for the next wait duration, so we never run over. THAT should be the two
+// modes.
+
+// over can go over if theres enough time to start another wait, plus execution of op
+// under can go under if theres not enough time to start another wait
+// If you want exact timing, configure your wait stream accordingly
