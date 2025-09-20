@@ -381,8 +381,5 @@ fn do_execute(
 
 // Move wait function into stream and yield wait time along operation_duration
 
-// TODO: Use consistent mock time objects and functions in all tests, not just
-// ones that will block if using normal ones
-
 // TODO: Have yielder return RetryData directly (or YielderData), then we just
 // need execute to run through the generator and return
