@@ -271,8 +271,8 @@ pub fn prepare_wait_stream(
       |> yielder.index
       |> yielder.transform(Nil, fn(_, wait_duration_attempt) {
         let #(wait_duration, attempt) = wait_duration_attempt
-        let current_time = duration_ms(start_time, clock.now(clock))
-        case current_time < expiry {
+        let total_duration = duration_ms(start_time, clock.now(clock))
+        case total_duration < expiry {
           True -> {
             case attempt {
               0 -> Nil
