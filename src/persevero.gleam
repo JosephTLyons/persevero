@@ -55,7 +55,7 @@ type RetryResult(a, b) =
   Result(a, Error(b))
 
 // TODO: Make each internal int its own type so that we can't accidentally pass
-// the wrong one around
+// the wrong one around, including attempt
 @internal
 pub type Duration {
   WaitDuration(Int)
@@ -252,6 +252,7 @@ pub fn prepare_wait_stream(
       |> yielder.take(max_attempts)
       |> yielder.map(fn(wait_duration_attempt) {
         let #(wait_duration, attempt) = wait_duration_attempt
+        // Clean up duplicate between two mode branches
         case attempt {
           0 -> Nil
           _ -> wait_function(wait_duration)
