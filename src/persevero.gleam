@@ -378,9 +378,6 @@ fn do_execute(
     }
   }
 }
-// - [ ] Use wall-clock timing in `prepare_wait_stream` for Expiry mode (not accumulated waits)
-//    verify with agent
-
 // ordering of StreamData
 
 // TODO: Have yielder return RetryData directly (or YielderData), then we just
