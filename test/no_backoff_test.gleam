@@ -16,7 +16,7 @@ import persevero.{
 pub fn positive_3_no_backoff_fails_with_retries_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.no_backoff()
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -49,4 +49,5 @@ pub fn positive_3_no_backoff_fails_with_retries_exhausted_test() {
       WaitDuration(0),
       OperationDuration(3),
     ]
+  assert total_duration == 6
 }

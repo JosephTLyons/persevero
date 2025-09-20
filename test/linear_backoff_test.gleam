@@ -14,7 +14,7 @@ import persevero.{
 pub fn positive_4_linear_backoff_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.linear_backoff(100, 100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -43,12 +43,13 @@ pub fn positive_4_linear_backoff_is_successful_test() {
       WaitDuration(300),
       OperationDuration(4),
     ]
+  assert total_duration == 610
 }
 
 pub fn positive_4_negative_wait_duration_linear_backoff_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.linear_backoff(-100, -1000)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -75,4 +76,5 @@ pub fn positive_4_negative_wait_duration_linear_backoff_is_successful_test() {
       WaitDuration(0),
       OperationDuration(3),
     ]
+  assert total_duration == 6
 }

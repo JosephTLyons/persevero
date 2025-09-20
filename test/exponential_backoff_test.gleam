@@ -14,7 +14,7 @@ import persevero.{
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant_multiplier_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(50, 2)
     |> persevero.apply_constant(1)
     |> persevero.apply_multiplier(3)
@@ -49,12 +49,14 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
       WaitDuration(304),
       OperationDuration(3),
     ]
+
+  assert total_duration == 464
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_cap_constant_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(50, 3)
     |> persevero.apply_cap(100)
     |> persevero.apply_constant(3)
@@ -88,12 +90,13 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_cap_cons
       WaitDuration(103),
       OperationDuration(3),
     ]
+  assert total_duration == 162
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant_cap_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(50, 2)
     |> persevero.apply_constant(3)
     |> persevero.apply_cap(100)
@@ -127,12 +130,13 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
       WaitDuration(100),
       OperationDuration(3),
     ]
+  assert total_duration == 159
 }
 
 pub fn positive_4_exponential_backoff_on_all_allowed_errors_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(100, 2)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -161,12 +165,13 @@ pub fn positive_4_exponential_backoff_on_all_allowed_errors_is_successful_test()
       WaitDuration(400),
       OperationDuration(4),
     ]
+  assert total_duration == 710
 }
 
 pub fn positive_4_exponential_backoff_on_some_allowed_errors_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(100, 3)
     |> persevero.execute_with_options(
       allow: fn(error) {
@@ -198,12 +203,13 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_is_successful_test(
       WaitDuration(300),
       OperationDuration(3),
     ]
+  assert total_duration == 406
 }
 
 pub fn positive_5_exponential_backoff_on_some_allowed_errors_with_apply_cap_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.exponential_backoff(500, 2)
     |> persevero.apply_cap(1000)
     |> persevero.execute_with_options(
@@ -242,5 +248,6 @@ pub fn positive_5_exponential_backoff_on_some_allowed_errors_with_apply_cap_is_s
       WaitDuration(1000),
       OperationDuration(5),
     ]
+  assert total_duration == 3515
 }
 // TODO: Remove all fake operation comments

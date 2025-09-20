@@ -16,7 +16,7 @@ import persevero.{
 pub fn positive_4_constant_backoff_with_some_allowed_errors_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: fn(error) {
@@ -48,12 +48,13 @@ pub fn positive_4_constant_backoff_with_some_allowed_errors_is_successful_test()
       WaitDuration(100),
       OperationDuration(3),
     ]
+  assert total_duration == 206
 }
 
 pub fn positive_4_constant_backoff_with_all_allowed_errors_is_successful_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -82,6 +83,7 @@ pub fn positive_4_constant_backoff_with_all_allowed_errors_is_successful_test() 
       WaitDuration(100),
       OperationDuration(4),
     ]
+  assert total_duration == 310
 }
 
 pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() {
@@ -105,6 +107,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
       clock: clock.from_fake(fake_clock),
     )
 
+  assert result == Ok(ValidData)
   assert durations
     == [
       WaitDuration(0),
@@ -117,7 +120,6 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
       OperationDuration(4),
     ]
   assert total_duration == 310
-  assert result == Ok(ValidData)
 }
 
 // -------------------- Failure
@@ -125,7 +127,7 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_is_successful_test() 
 pub fn negative_1_times_fails_with_retries_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -143,12 +145,13 @@ pub fn negative_1_times_fails_with_retries_exhausted_test() {
     )
   assert result == Error(RetriesExhausted([]))
   assert durations == []
+  assert total_duration == 0
 }
 
 pub fn positive_0_times_fails_with_retries_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -166,12 +169,13 @@ pub fn positive_0_times_fails_with_retries_exhausted_test() {
     )
   assert result == Error(RetriesExhausted([]))
   assert durations == []
+  assert total_duration == 0
 }
 
 pub fn positive_1_times_fails_with_retries_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -189,12 +193,13 @@ pub fn positive_1_times_fails_with_retries_exhausted_test() {
     )
   assert result == Error(RetriesExhausted([ConnectionTimeout]))
   assert durations == [WaitDuration(0), OperationDuration(1)]
+  assert total_duration == 1
 }
 
 pub fn positive_3_times_fails_with_retries_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: all_errors,
@@ -223,12 +228,13 @@ pub fn positive_3_times_fails_with_retries_exhausted_test() {
       WaitDuration(100),
       OperationDuration(3),
     ]
+  assert total_duration == 206
 }
 
 pub fn positive_3_times_retry_fails_on_non_allowed_error_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, _) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: fn(error) {
@@ -258,13 +264,14 @@ pub fn positive_3_times_retry_fails_on_non_allowed_error_test() {
       WaitDuration(100),
       OperationDuration(2),
     ]
+  assert total_duration == 103
 }
 
 // Same as comment below
 pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, duration) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
@@ -276,9 +283,9 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
       clock: clock.from_fake(fake_clock),
     )
 
-  assert durations == []
-  assert duration == 0
   assert result == Error(TimeExhausted([]))
+  assert durations == []
+  assert total_duration == 0
 }
 
 // I may want to revisit this. I'm not sure if expiry 0, or less than 0, should
@@ -288,7 +295,7 @@ pub fn expiry_negative_1_constant_backoff_with_all_allowed_errors_time_exhausted
 pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, duration) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
@@ -300,15 +307,15 @@ pub fn expiry_0_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
       clock: clock.from_fake(fake_clock),
     )
 
-  assert durations == []
-  assert duration == 0
   assert result == Error(TimeExhausted([]))
+  assert durations == []
+  assert total_duration == 0
 }
 
 pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, duration) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
@@ -335,15 +342,15 @@ pub fn expiry_10000_constant_backoff_with_all_allowed_errors_time_exhausted_test
 
   let expected_errors = InvalidResponse |> list.repeat(97)
 
-  assert durations == expected_durations
-  assert duration == 10_085
   assert result == Error(TimeExhausted(expected_errors))
+  assert durations == expected_durations
+  assert total_duration == 10_085
 }
 
 pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test() {
   let fake_clock = fake_clock.new()
 
-  let RetryData(result, durations, duration) =
+  let RetryData(result, durations, total_duration) =
     persevero.constant_backoff(100)
     |> persevero.execute_with_options(
       allow: persevero.all_errors,
@@ -366,6 +373,15 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
       clock: clock.from_fake(fake_clock),
     )
 
+  assert result
+    == Error(
+      TimeExhausted([
+        ConnectionTimeout,
+        ServerUnavailable,
+        InvalidResponse,
+        ServerUnavailable,
+      ]),
+    )
   assert durations
     == [
       WaitDuration(0),
@@ -377,14 +393,5 @@ pub fn expiry_300_constant_backoff_with_all_allowed_errors_time_exhausted_test()
       WaitDuration(100),
       OperationDuration(5),
     ]
-  assert duration == 320
-  assert result
-    == Error(
-      TimeExhausted([
-        ConnectionTimeout,
-        ServerUnavailable,
-        InvalidResponse,
-        ServerUnavailable,
-      ]),
-    )
+  assert total_duration == 320
 }
