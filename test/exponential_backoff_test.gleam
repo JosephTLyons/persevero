@@ -30,12 +30,8 @@ pub fn positive_4_exponential_backoff_on_some_allowed_errors_with_apply_constant
       operation: build_fake_operation(fake_clock, fn(attempt) {
         case attempt {
           0 -> #(1, Error(ConnectionTimeout))
-          // 2, wait 100
           1 -> #(2, Error(ServerUnavailable))
-          // 3, wait 100
-          // succeed
           2 -> #(3, Ok(SuccessfulConnection))
-          // Doesn't reach
           3 -> #(4, Error(InvalidResponse))
           _ -> panic
         }
