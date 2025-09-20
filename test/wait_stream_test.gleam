@@ -73,7 +73,7 @@ pub fn max_attempts_prepare_wait_stream_test() {
       fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
-    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.map(fn(stream_data) { stream_data.wait_duration })
     |> yielder.to_list
     == [0, 5, 10]
 }
@@ -87,7 +87,7 @@ pub fn prepare_wait_stream_expiry_exact_fits_perfectly_test() {
       fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
-    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.map(fn(stream_data) { stream_data.wait_duration })
     |> yielder.to_list
     == [0, 5, 5]
 }
@@ -101,7 +101,7 @@ pub fn prepare_wait_stream_expiry_fits_perfectly_test() {
       fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
-    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.map(fn(stream_data) { stream_data.wait_duration })
     |> yielder.to_list
     == [0, 5, 5]
 }
@@ -115,7 +115,7 @@ pub fn prepare_wait_stream_expiry_exceeds_limit_test() {
       fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
-    |> yielder.map(fn(tuple) { tuple.0 })
+    |> yielder.map(fn(stream_data) { stream_data.wait_duration })
     |> yielder.to_list
     == [0, 5, 5, 5, 5, 5]
 }
@@ -129,8 +129,7 @@ pub fn prepare_wait_stream_tracks_attempts_test() {
       fn(_, _) { #(1, Ok(Nil)) },
       clock.from_fake(fake_clock),
     )
-    |> yielder.map(fn(tuple) { tuple.1 })
-    // Get the attempt number
+    |> yielder.map(fn(stream_data) { stream_data.attempt })
     |> yielder.to_list
     == [0, 1, 2, 3]
 }
