@@ -377,15 +377,10 @@ fn do_execute(
     }
   }
 }
-// TODO: Move timing and attempt tracking to wait stream
-
-// - [ ] Update `prepare_wait_stream` to return `Yielder(#(Int, Int, Int))` with `#(wait_duration, duration, attempt)`
 // - [ ] Use wall-clock timing in `prepare_wait_stream` for Expiry mode (not accumulated waits)
 //    verify with agent
 
-// order of tuple should be index, wait_duration, duration
-
-// Move wait function into stream and yield wait time along operation_duration
+// ordering of StreamData
 
 // TODO: Have yielder return RetryData directly (or YielderData), then we just
 // need execute to run through the generator and return
