@@ -54,7 +54,7 @@ pub fn main() {
   let assert Ok(request) = request.to("https://www.apple.com")
 
   let response =
-    persevero.custom_backoff(wait_time: 1000, next_wait_time: fn(previous) {
+    persevero.custom_backoff(wait_duration: 1000, next_wait_duration: fn(previous) {
       { previous + 100 } * 2
     })
     |> persevero.apply_multiplier(3)

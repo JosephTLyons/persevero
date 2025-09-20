@@ -54,9 +54,32 @@ pub type Error(a) {
 type RetryResult(a, b) =
   Result(a, Error(b))
 
+// TODO: Make each internal int its own type so that we can't accidentally pass
+// the wrong one around, including attempt
+@internal
+pub type Duration {
+  WaitDuration(Int)
+  OperationDuration(Int)
+}
+
 @internal
 pub type RetryData(a, b) {
-  RetryData(result: RetryResult(a, b), wait_times: List(Int), duration: Int)
+  RetryData(
+    result: RetryResult(a, b),
+    durations: List(Duration),
+    total_duration: Int,
+  )
+}
+
+@internal
+pub type StreamData(a, b) {
+  StreamData(
+    wait_duration: Int,
+    attempt: Int,
+    operation_duration: Int,
+    operation_result: Result(a, b),
+    total_duration: Int,
+  )
 }
 
 /// Convenience function that can supplied to `execute`'s `allow` parameter to
@@ -67,10 +90,10 @@ pub fn all_errors(_: a) -> Bool {
 
 /// Produces a custom ms wait stream.
 pub fn custom_backoff(
-  wait_time wait_time: Int,
-  next_wait_time next_wait_time: fn(Int) -> Int,
+  wait_duration wait_duration: Int,
+  next_wait_duration next_wait_duration: fn(Int) -> Int,
 ) -> Yielder(Int) {
-  yielder.iterate(wait_time, next_wait_time)
+  yielder.iterate(wait_duration, next_wait_duration)
 }
 
 /// Produces a 0ms wait stream.
@@ -81,24 +104,27 @@ pub fn no_backoff() -> Yielder(Int) {
 
 /// Produces a ms wait stream with a constant wait time.
 /// Ex: 500ms, 500ms, 500ms, ...
-pub fn constant_backoff(wait_time wait_time: Int) -> Yielder(Int) {
-  yielder.iterate(wait_time, function.identity)
+pub fn constant_backoff(wait_duration wait_duration: Int) -> Yielder(Int) {
+  yielder.iterate(wait_duration, function.identity)
 }
 
 /// Produces a ms wait stream that increases linearly for each attempt.
 /// Ex: 500ms, 1000ms, 1500ms, ...
-pub fn linear_backoff(wait_time wait_time: Int, step step: Int) -> Yielder(Int) {
-  yielder.iterate(wait_time, int.add(_, step))
+pub fn linear_backoff(
+  wait_duration wait_duration: Int,
+  step step: Int,
+) -> Yielder(Int) {
+  yielder.iterate(wait_duration, int.add(_, step))
 }
 
 /// Produces a ms wait stream that increases exponentially for each attempt.
 /// time:
 /// Ex: 500ms, 1000ms, 2000ms, ...
 pub fn exponential_backoff(
-  wait_time wait_time: Int,
+  wait_duration wait_duration: Int,
   factor factor: Int,
 ) -> Yielder(Int) {
-  yielder.iterate(wait_time, int.multiply(_, factor))
+  yielder.iterate(wait_duration, int.multiply(_, factor))
 }
 
 /// Adds a random integer between [1, `upper_bound`] to each wait time.
@@ -128,9 +154,9 @@ pub fn apply_multiplier(
 /// Caps each wait time at a maximum value.
 pub fn apply_cap(
   wait_stream wait_stream: Yielder(Int),
-  max_wait_time max_wait_time: Int,
+  max_wait_duration max_wait_duration: Int,
 ) -> Yielder(Int) {
-  wait_stream |> yielder.map(int.min(_, max_wait_time))
+  wait_stream |> yielder.map(int.min(_, max_wait_duration))
 }
 
 /// Configures the retry mode.
@@ -140,14 +166,11 @@ pub type Mode {
 
   /// Specifies the maximum duration, in ms, to make attempts for.
   ///
-  /// Note that `Expiry` mode does not prevent the current wait time from
-  /// spilling over past the timeout. For example, if you're currently under the
-  /// expiry timeout by 1s and your current wait time is 10s, this wait time,
-  /// and the attempt on the operation, will still be run, resulting in
-  /// spillover. Also note that the duration measured includes the time it takes
-  /// to run your operation.
+  /// The duration measured includes the time it takes to run your operation.
   Expiry(Int)
 }
+
+// TODO: Have agent explain and document when expiry stops
 
 /// Initiates the execution process with the specified operation.
 ///
@@ -166,11 +189,16 @@ pub fn execute(
     wait_stream:,
     allow:,
     mode:,
-    operation: fn(_) { operation() },
-    wait_function: fn(wait_time) {
-      case wait_time <= 0 {
+    operation: fn(_, clock) {
+      let start = clock.now(clock)
+      let operation_result = operation()
+      let end = clock.now(clock)
+      #(duration_ms(start, end), operation_result)
+    },
+    wait_function: fn(wait_duration) {
+      case wait_duration <= 0 {
         True -> Nil
-        False -> process.sleep(wait_time)
+        False -> process.sleep(wait_duration)
       }
     },
     clock: clock.new(),
@@ -182,37 +210,94 @@ pub fn execute_with_options(
   wait_stream wait_stream: Yielder(Int),
   allow allow: fn(b) -> Bool,
   mode mode: Mode,
-  operation operation: fn(Int) -> Result(a, b),
+  operation operation: fn(Int, clock.Clock) -> #(Int, Result(a, b)),
   wait_function wait_function: fn(Int) -> Nil,
   clock clock: clock.Clock,
 ) -> RetryData(a, b) {
   do_execute(
-    wait_stream: wait_stream |> configure_wait_stream(mode),
+    wait_stream: prepare_wait_stream(
+      wait_stream,
+      wait_function,
+      mode,
+      operation,
+      clock,
+    ),
     allow:,
     mode:,
-    operation:,
-    wait_function:,
-    wait_time_acc: [],
-    clock:,
+    durations: [],
     errors_acc: [],
-    attempt: 0,
-    start_time: clock |> clock.now(),
-    duration: 0,
+    total_duration: 0,
   )
 }
 
-fn configure_wait_stream(
+@internal
+pub fn prepare_wait_stream(
   wait_stream wait_stream: Yielder(Int),
+  wait_function wait_function: fn(Int) -> Nil,
   mode mode: Mode,
-) -> Yielder(Int) {
+  operation operation: fn(Int, clock.Clock) -> #(Int, Result(a, b)),
+  clock clock: clock.Clock,
+) -> Yielder(StreamData(a, b)) {
+  let start_time = clock.now(clock)
+
   let wait_stream =
     wait_stream
     |> yielder.prepend(0)
     |> yielder.map(int.max(_, 0))
+    |> yielder.index
 
   case mode {
-    MaxAttempts(max_attempts) -> wait_stream |> yielder.take(max_attempts)
-    Expiry(_) -> wait_stream
+    MaxAttempts(max_attempts) -> {
+      wait_stream
+      |> yielder.take(max_attempts)
+      |> yielder.map(fn(wait_duration_attempt) {
+        let #(wait_duration, attempt) = wait_duration_attempt
+        // Clean up duplicate between two mode branches
+        case attempt {
+          0 -> Nil
+          _ -> wait_function(wait_duration)
+        }
+        let #(operation_duration, operation_result) = operation(attempt, clock)
+        let total_duration = duration_ms(start_time, clock.now(clock))
+        StreamData(
+          wait_duration,
+          attempt,
+          operation_duration,
+          operation_result,
+          total_duration,
+        )
+      })
+    }
+    Expiry(expiry) -> {
+      wait_stream
+      |> yielder.transform(Nil, fn(_, wait_duration_attempt) {
+        let #(wait_duration, attempt) = wait_duration_attempt
+        let total_duration = duration_ms(start_time, clock.now(clock))
+        case total_duration < expiry {
+          True -> {
+            case attempt {
+              0 -> Nil
+              _ -> wait_function(wait_duration)
+            }
+            let #(operation_duration, operation_result) =
+              operation(attempt, clock)
+            let total_duration = duration_ms(start_time, clock.now(clock))
+
+            yielder.Next(
+              StreamData(
+                wait_duration,
+                attempt,
+                operation_duration,
+                operation_result,
+                total_duration,
+              ),
+              Nil,
+            )
+          }
+          False -> yielder.Done
+        }
+      })
+    }
   }
 }
 
@@ -226,36 +311,49 @@ pub fn duration_ms(left: Timestamp, right: Timestamp) -> Int {
   seconds * 1000 + nanoseconds / 1_000_000
 }
 
+// TODO: Move all of this into yielder
 fn do_execute(
-  wait_stream wait_stream: Yielder(Int),
+  wait_stream wait_stream: Yielder(StreamData(a, b)),
   allow allow: fn(b) -> Bool,
   mode mode: Mode,
-  operation operation: fn(Int) -> Result(a, b),
-  wait_function wait_function: fn(Int) -> Nil,
-  wait_time_acc wait_time_acc: List(Int),
-  clock clock: clock.Clock,
+  durations durations: List(Duration),
   errors_acc errors_acc: List(b),
-  attempt attempt: Int,
-  start_time start_time: Timestamp,
-  duration duration: Int,
+  total_duration total_duration: Int,
 ) -> RetryData(a, b) {
-  let should_execute = case mode {
-    MaxAttempts(max_attempts) -> max_attempts > 0
-    Expiry(expiry) -> expiry > 0 && duration < expiry
-  }
-
-  case should_execute, wait_stream |> yielder.step() {
-    True, yielder.Next(wait_time, wait_stream) -> {
-      wait_function(wait_time)
-      let wait_time_acc = [wait_time, ..wait_time_acc]
-      let duration = duration_ms(start_time, clock.now(clock))
-
-      case operation(attempt) {
+  case yielder.step(wait_stream) {
+    yielder.Done -> {
+      let errors = list.reverse(errors_acc)
+      let error = case mode {
+        MaxAttempts(_) -> RetriesExhausted(errors)
+        Expiry(_) -> TimeExhausted(errors)
+      }
+      RetryData(
+        result: Error(error),
+        durations: list.reverse(durations),
+        total_duration:,
+      )
+    }
+    yielder.Next(
+      StreamData(
+        wait_duration,
+        _,
+        operation_duration,
+        operation_result,
+        total_duration,
+      ),
+      wait_stream,
+    ) -> {
+      let durations = [
+        OperationDuration(operation_duration),
+        WaitDuration(wait_duration),
+        ..durations
+      ]
+      case operation_result {
         Ok(result) ->
           RetryData(
             result: Ok(result),
-            wait_times: wait_time_acc |> list.reverse,
-            duration:,
+            durations: list.reverse(durations),
+            total_duration:,
           )
         Error(error) -> {
           case allow(error) {
@@ -264,36 +362,31 @@ fn do_execute(
                 wait_stream:,
                 allow:,
                 mode:,
-                operation:,
-                wait_function:,
-                wait_time_acc:,
-                clock:,
+                durations: durations,
                 errors_acc: [error, ..errors_acc],
-                attempt: attempt + 1,
-                start_time:,
-                duration:,
+                total_duration:,
               )
             False ->
               RetryData(
                 result: Error(UnallowedError(error)),
-                wait_times: wait_time_acc |> list.reverse,
-                duration:,
+                durations: list.reverse(durations),
+                total_duration:,
               )
           }
         }
       }
     }
-    _, _ -> {
-      let errors = errors_acc |> list.reverse
-      let error = case mode {
-        MaxAttempts(_) -> RetriesExhausted(errors)
-        Expiry(_) -> TimeExhausted(errors)
-      }
-      RetryData(
-        result: Error(error),
-        wait_times: wait_time_acc |> list.reverse,
-        duration:,
-      )
-    }
   }
 }
+// ordering of StreamData
+
+// TODO: Have yielder return RetryData directly (or YielderData), then we just
+// need execute to run through the generator and return
+
+// TODO: Consider if we should bail in expiry if there isn't enough time left
+// for the next wait duration, so we never run over. THAT should be the two
+// modes.
+
+// over can go over if theres enough time to start another wait, plus execution of op
+// under can go under if theres not enough time to start another wait
+// If you want exact timing, configure your wait stream accordingly
